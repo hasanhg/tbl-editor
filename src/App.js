@@ -11,6 +11,9 @@ const styles = theme => ({
     fontFamily: 'Roboto',
     display: 'inline'
   },
+  colCell: {
+
+  },
   hCell: {
     border: '1px solid #ddd'
   }
@@ -43,8 +46,14 @@ class App extends React.Component {
         [{ value: 'Dark Mild Ale' }, { value: '10 - 24' }, { value: '17 - 34' }, { value: 3 }],
         [{ value: 'Brown Ale' }, { value: '12 - 25' }, { value: '12 - 17' }, { value: 3 }]
       ],
-      selections: [false, false, false, false, false, false, false, false, false, false, false, false, false, false]
+      selections: [false, false, false, false, false, false, false, false, false, false, false, false, false, false],
     };
+
+    this.lastMouseAt = Date.now();
+    this.mouseX = null;
+  }
+
+  componentDidMount() {
   }
 
   handleSelect = (e) => {
@@ -83,11 +92,11 @@ class App extends React.Component {
     const { columns, selections } = this.state
     switch (this.state.as) {
       case 'list':
-        return <SheetRenderer columns={columns} selections={selections} onSelectAllChanged={this.handleSelectAllChanged} as='segment' headerAs='div' bodyAs='ul' rowAs='div' cellAs='div' {...props} {...this.props} />
+        return <SheetRenderer columns={columns} selections={selections} onSelectAllChanged={this.handleSelectAllChanged} as='segment' headerAs='div' bodyAs='ul' rowAs='div' cellAs='div' {...props} {...this.props} setState={s => this.setState(s)} state={this.state} />
       case 'div':
-        return <SheetRenderer columns={columns} selections={selections} onSelectAllChanged={this.handleSelectAllChanged} as='div' headerAs='div' bodyAs='div' rowAs='div' cellAs='div' {...props} {...this.props} />
+        return <SheetRenderer columns={columns} selections={selections} onSelectAllChanged={this.handleSelectAllChanged} as='div' headerAs='div' bodyAs='div' rowAs='div' cellAs='div' {...props} {...this.props} setState={s => this.setState(s)} state={this.state} />
       default:
-        return <SheetRenderer columns={columns} selections={selections} onSelectAllChanged={this.handleSelectAllChanged} as='table' headerAs='thead' bodyAs='tbody' rowAs='tr' cellAs='th' {...props} {...this.props} />
+        return <SheetRenderer columns={columns} selections={selections} onSelectAllChanged={this.handleSelectAllChanged} as='table' headerAs='thead' bodyAs='tbody' rowAs='tr' cellAs='th' {...props} {...this.props} setState={s => this.setState(s)} state={this.state} />
     }
   }
 
@@ -106,11 +115,11 @@ class App extends React.Component {
   cellRenderer = (props) => {
     switch (this.state.as) {
       case 'list':
-        return <CellRenderer as='div' columns={this.state.columns} {...props} />
+        return <CellRenderer as='div' columns={this.state.columns} {...props} state={this.state} />
       case 'div':
-        return <CellRenderer as='div' columns={this.state.columns} {...props} />
+        return <CellRenderer as='div' columns={this.state.columns} {...props} state={this.state} />
       default:
-        return <CellRenderer as='td' columns={this.state.columns} {...props} />
+        return <CellRenderer as='td' columns={this.state.columns} {...props} state={this.state} />
     }
   }
 
@@ -140,9 +149,22 @@ class App extends React.Component {
   }
 }
 
+const onDragStart = (e, state, setState, i) => {
+  setState({ dragX: e.clientX, dragI: i });
+}
+
+const onDragEnd = (e, state, setState, i) => {
+  if (!state.dragX) return;
+  i = i ? i : state.dragI;
+  const width = state.columns[i].width + e.clientX - state.dragX;
+  const columns = state.columns;
+  columns[i] = { ...columns[i], width };
+  setState({ columns, dragX: null, dragI: null });
+}
+
 const SheetRenderer = props => {
   const { as: Tag, headerAs: Header, bodyAs: Body, rowAs: Row, cellAs: Cell,
-    className, columns, selections, onSelectAllChanged, classes } = props
+    className, columns, selections, onSelectAllChanged, classes, setState, state } = props
 
   const colName = (i) => {
     for (var ret = '', a = 1, b = 26; (i -= a) >= 0; a = b, b *= 26) {
@@ -152,16 +174,32 @@ const SheetRenderer = props => {
   }
 
   return (
-    <div style={{ overflowX: 'auto', height: '100vh', backgroundColor: '#ccc' }}>
+    <div style={{ overflowX: 'auto', height: '100vh', backgroundColor: '#ccc', cursor: state.dragX ? 'col-resize' : 'default' }} onMouseUp={(e) => onDragEnd(e, state, setState)}>
+      <div style={{ borderRight: state.dragX ? '2px solid #8cdcda' : null, position: 'absolute', left: state.mouseX, width: 2, height: '100vh' }} />
       <Tag className={className} style={{ width: 'fit-content' }}>
         <Header className='data-header'>
           <Row>
             <Cell className='action-cell cell' style={{ backgroundColor: '#ccc', width: 64 }}>
             </Cell>
-            {columns.map((column, i) =>
-              <Cell className='cell' className={classes.hCell} style={{ width: column.width, fontWeight: 600, backgroundColor: '#696', color: '#fff', padding: '2px 0px' }} key={column.label}>
-                {colName(i + 1)}
-              </Cell>
+            {columns.map((column, i) => {
+              const col = colName(i + 1);
+              return (
+                <Cell className='cell' className={classes.colCell} style={{ width: column.width, fontWeight: 600, backgroundColor: '#696', color: '#fff', padding: 0 }} key={column.label}>
+                  <div style={{ display: 'flex' }}>
+                    <div style={{
+                      borderLeft: state.hoverCol === i - 1 || state.dragI === i - 1 ? '2px solid #8cdcda' : '0px solid #ccc',
+                      boxSizing: 'border-box', cursor: 'col-resize'
+                    }} onMouseOver={e => setState({ hoverCol: i - 1 })} onMouseLeave={e => setState({ hoverCol: null })} onMouseDown={(e) => { onDragStart(e, state, setState, i - 1) }} />
+                    <span style={{ padding: '2px 0px', width: '100%', userSelect: 'none' }}>{col}</span>
+                    <span style={{ flex: 1 }} />
+                    <div style={{
+                      borderRight: state.hoverCol === i || state.dragI === i ? '2px solid #8cdcda' : '1px solid #ccc',
+                      boxSizing: 'border-box', cursor: 'col-resize'
+                    }} onMouseOver={e => setState({ hoverCol: i })} onMouseLeave={e => setState({ hoverCol: null })} onMouseDown={(e) => { onDragStart(e, state, setState, i) }} />
+                  </div>
+                </Cell>
+              );
+            }
             )}
           </Row>
           <Row>
@@ -194,7 +232,7 @@ const RowRenderer = props => {
 const CellRenderer = props => {
   const {
     as: Tag, cell, row, col, columns, attributesRenderer,
-    selected, editing, updated, style,
+    selected, editing, updated, style, state,
     ...rest
   } = props
 
@@ -209,7 +247,9 @@ const CellRenderer = props => {
   const nan = isNaN(cell.value);
 
   return (
-    <Tag {...rest} {...attributes} style={{ textAlign: nan ? 'left' : 'right', padding: '2px 8px', backgroundColor: '#fff' }}>
+    <Tag {...rest} {...attributes} style={{
+      textAlign: nan ? 'left' : 'right', padding: '2px 8px', backgroundColor: '#fff',
+    }}>
       {props.children}
     </Tag>
   )
