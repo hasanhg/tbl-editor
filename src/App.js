@@ -57,6 +57,7 @@ class App extends React.Component {
     };
 
     this.inputRef = React.createRef();
+    this.sheetRef = React.createRef();
   }
 
   componentDidMount() {
@@ -102,11 +103,11 @@ class App extends React.Component {
     const { columns, selections } = this.state
     switch (this.state.as) {
       case 'list':
-        return <SheetRenderer columns={columns} selections={selections} onSelectAllChanged={this.handleSelectAllChanged} as='segment' headerAs='div' bodyAs='ul' rowAs='div' cellAs='div' {...props} {...this.props} setState={s => this.setState(s)} state={this.state} doFilter={this.doFilter} />
+        return <SheetRenderer ref={this.sheetRef} columns={columns} selections={selections} onSelectAllChanged={this.handleSelectAllChanged} as='segment' headerAs='div' bodyAs='ul' rowAs='div' cellAs='div' {...props} {...this.props} setState={s => this.setState(s)} state={this.state} doFilter={this.doFilter} />
       case 'div':
-        return <SheetRenderer columns={columns} selections={selections} onSelectAllChanged={this.handleSelectAllChanged} as='div' headerAs='div' bodyAs='div' rowAs='div' cellAs='div' {...props} {...this.props} setState={s => this.setState(s)} state={this.state} doFilter={this.doFilter} />
+        return <SheetRenderer ref={this.sheetRef} columns={columns} selections={selections} onSelectAllChanged={this.handleSelectAllChanged} as='div' headerAs='div' bodyAs='div' rowAs='div' cellAs='div' {...props} {...this.props} setState={s => this.setState(s)} state={this.state} doFilter={this.doFilter} />
       default:
-        return <SheetRenderer columns={columns} selections={selections} onSelectAllChanged={this.handleSelectAllChanged} as='table' headerAs='thead' bodyAs='tbody' rowAs='tr' cellAs='th' {...props} {...this.props} setState={s => this.setState(s)} state={this.state} doFilter={this.doFilter} />
+        return <SheetRenderer ref={this.sheetRef} columns={columns} selections={selections} onSelectAllChanged={this.handleSelectAllChanged} as='table' headerAs='thead' bodyAs='tbody' rowAs='tr' cellAs='th' {...props} {...this.props} setState={s => this.setState(s)} state={this.state} doFilter={this.doFilter} />
     }
   }
 
@@ -138,8 +139,14 @@ class App extends React.Component {
     changes.forEach(({ cell, row, col, value }) => {
       grid[row][col] = { ...grid[row][col], value };
     });
-    this.setState({ grid });
+    this.setState({ grid }, () => {
+      this.sheetRef.current.refresh();
+    });
   };
+
+  onCellSelected = (e) => {
+    this.sheetRef.current.refresh();
+  }
 
   onContextMenu = (e, cell, i, j) =>
     cell.readOnly ? e.preventDefault() : null;
@@ -185,7 +192,9 @@ class App extends React.Component {
       });
 
       const grid = _grid.slice(0, this.state.size);
-      this.setState({ _grid, columns, grid, filteredGrid: _grid, page: 0, _page: 1 });
+      this.setState({ _grid, columns, grid, filteredGrid: _grid, page: 0, _page: 1 }, () => {
+        this.sheetRef.current.refresh();
+      });
     };
 
     fr.readAsArrayBuffer(file);
@@ -197,7 +206,9 @@ class App extends React.Component {
     page = Math.min(page, total);
     const min = page * size;
     const max = min + size;
-    this.setState({ grid: this.state.filteredGrid.slice(min, max), page, size, _page: page + 1 });
+    this.setState({ grid: this.state.filteredGrid.slice(min, max), page, size, _page: page + 1 }, () => {
+      this.sheetRef.current.refresh();
+    });
   }
 
   onPrevPage = () => {
@@ -427,6 +438,7 @@ class App extends React.Component {
             cellRenderer={this.cellRenderer}
             onContextMenu={this.onContextMenu}
             onCellsChanged={this.onCellsChanged}
+            onSelect={this.onCellSelected}
             overflow={'clip'}
           />
         </div>
@@ -462,70 +474,90 @@ const removeFilter = (i, state, setState, doFilter) => {
   doFilter(filters);
 }
 
-const SheetRenderer = props => {
-  const { as: Tag, headerAs: Header, bodyAs: Body, rowAs: Row, cellAs: Cell,
-    className, columns, selections, onSelectAllChanged, classes, setState, state, doFilter } = props
+class SheetRenderer extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+    };
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return false;
+  }
+
+  refresh = () => {
+    this.forceUpdate();
+  }
+
+  render() {
+    const { as: Tag, headerAs: Header, bodyAs: Body, rowAs: Row, cellAs: Cell,
+      className, columns, selections, onSelectAllChanged, classes, setState, state, doFilter } = this.props;
 
 
-  return (
-    <div style={{ height: '100vh', cursor: state.dragX ? 'col-resize' : 'default' }} onMouseUp={(e) => onDragEnd(e, state, setState)}>
-      <div id={'temp'} style={{ borderRight: state.dragX ? '2px solid #8cdcda' : null, left: 0, position: 'absolute', width: 2, height: '100vh' }} />
-      <Tag className={className} style={{ width: 'fit-content' }}>
-        <Header className='data-header'>
-          <Row>
-            {columns.length > 0 ?
-              <Cell className='action-cell cell' style={{ backgroundColor: '#ccc', width: 64 }} /> :
+    return (
+      <div style={{ height: '100vh', cursor: state.dragX ? 'col-resize' : 'default' }} onMouseUp={(e) => onDragEnd(e, state, setState)}>
+        <div id={'temp'} style={{ borderRight: state.dragX ? '2px solid #8cdcda' : null, left: 0, position: 'absolute', width: 2, height: '100vh' }} />
+        <Tag className={className} style={{ width: 'fit-content' }}>
+          <Header className='data-header'>
+            <Row>
+              {columns.length > 0 ?
+                <Cell className='action-cell cell' style={{ backgroundColor: '#ccc', width: 64 }} /> :
+                null
+              }
+              {columns.map((column, i) => {
+                const col = colName(i + 1);
+                const filtered = i in state.filters;
+
+                return (
+                  <Cell className='cell' className={classes.colCell} style={{ width: column.width, fontWeight: 600, backgroundColor: '#696', color: '#fff', padding: 0 }} key={column.id}>
+                    <div style={{ display: 'flex', position: 'relative' }}>
+                      <span style={{
+                        borderLeft: state.hoverCol === i - 1 || state.dragI === i - 1 ? '2px solid #8cdcda' : '0px solid #ccc',
+                        boxSizing: 'border-box', cursor: 'col-resize', position: 'absolute', left: 0
+                      }} onMouseOver={e => setState({ hoverCol: i - 1 })} onMouseLeave={e => setState({ hoverCol: null })} onMouseDown={(e) => { onDragStart(e, state, setState, i - 1) }} />
+                      <span style={{ padding: '2px 0px', width: '100%', userSelect: 'none' }}>{col}</span>
+                      <span style={{ flex: 1 }} />
+                      <span style={{ position: 'absolute', right: 4 }}>
+                        <Tooltip title={filtered ? 'Remove Filter' : 'Add Filter'} placement='bottom'>
+                          <IconButton onClick={() => { filtered ? removeFilter(i, state, setState, doFilter) : setState({ filtering: true, filterInCol: i }) }} size='small' style={{ margin: '0px 4px' }}>
+                            <SvgIcon style={{ fontSize: 16 }}><path d={filtered ? mdiFilter : mdiFilterOutline} color={'#fff'} /></SvgIcon>
+                          </IconButton>
+                        </Tooltip>
+                      </span>
+                      <span style={{
+                        borderRight: state.hoverCol === i || state.dragI === i ? '2px solid #8cdcda' : '1px solid #ccc',
+                        boxSizing: 'border-box', cursor: 'col-resize', position: 'absolute', right: 0, height: '100%', alignContent: 'center'
+                      }} onMouseOver={e => setState({ hoverCol: i })} onMouseLeave={e => setState({ hoverCol: null })} onMouseDown={(e) => { onDragStart(e, state, setState, i) }}>
+
+                      </span>
+                    </div>
+                  </Cell>
+                );
+              }
+              )}
+            </Row>
+            {this.props.children.length > 0 ?
+              <Row>
+                <Cell className='action-cell cell' style={{ fontWeight: 600, textAlign: 'center', backgroundColor: '#696', color: '#fff', padding: '2px 0px' }}>
+                  1
+                </Cell>
+                {columns.map(column => <Cell className='cell' className={classes.hCell} style={{ width: column.width, padding: '2px 0px', backgroundColor: '#fff' }} key={column.id}>{column.label}</Cell>)}
+              </Row> :
               null
             }
-            {columns.map((column, i) => {
-              const col = colName(i + 1);
-              const filtered = i in state.filters;
 
-              return (
-                <Cell className='cell' className={classes.colCell} style={{ width: column.width, fontWeight: 600, backgroundColor: '#696', color: '#fff', padding: 0 }} key={column.id}>
-                  <div style={{ display: 'flex', position: 'relative' }}>
-                    <span style={{
-                      borderLeft: state.hoverCol === i - 1 || state.dragI === i - 1 ? '2px solid #8cdcda' : '0px solid #ccc',
-                      boxSizing: 'border-box', cursor: 'col-resize', position: 'absolute', left: 0
-                    }} onMouseOver={e => setState({ hoverCol: i - 1 })} onMouseLeave={e => setState({ hoverCol: null })} onMouseDown={(e) => { onDragStart(e, state, setState, i - 1) }} />
-                    <span style={{ padding: '2px 0px', width: '100%', userSelect: 'none' }}>{col}</span>
-                    <span style={{ flex: 1 }} />
-                    <span style={{ position: 'absolute', right: 4 }}>
-                      <Tooltip title={filtered ? 'Remove Filter' : 'Add Filter'} placement='bottom'>
-                        <IconButton onClick={() => { filtered ? removeFilter(i, state, setState, doFilter) : setState({ filtering: true, filterInCol: i }) }} size='small' style={{ margin: '0px 4px' }}>
-                          <SvgIcon style={{ fontSize: 16 }}><path d={filtered ? mdiFilter : mdiFilterOutline} color={'#fff'} /></SvgIcon>
-                        </IconButton>
-                      </Tooltip>
-                    </span>
-                    <span style={{
-                      borderRight: state.hoverCol === i || state.dragI === i ? '2px solid #8cdcda' : '1px solid #ccc',
-                      boxSizing: 'border-box', cursor: 'col-resize', position: 'absolute', right: 0, height: '100%', alignContent: 'center'
-                    }} onMouseOver={e => setState({ hoverCol: i })} onMouseLeave={e => setState({ hoverCol: null })} onMouseDown={(e) => { onDragStart(e, state, setState, i) }}>
-
-                    </span>
-                  </div>
-                </Cell>
-              );
-            }
-            )}
-          </Row>
-          {props.children.length > 0 ?
-            <Row>
-              <Cell className='action-cell cell' style={{ fontWeight: 600, textAlign: 'center', backgroundColor: '#696', color: '#fff', padding: '2px 0px' }}>
-                1
-              </Cell>
-              {columns.map(column => <Cell className='cell' className={classes.hCell} style={{ width: column.width, padding: '2px 0px', backgroundColor: '#fff' }} key={column.id}>{column.label}</Cell>)}
-            </Row> :
-            null
-          }
-
-        </Header>
-        <Body className='data-body'>
-          {props.children}
-        </Body>
-      </Tag >
-    </div >
-  )
+          </Header>
+          <Body className='data-body'>
+            {this.props.children}
+          </Body>
+        </Tag >
+      </div >
+    )
+  }
 }
 
 const RowRenderer = props => {
