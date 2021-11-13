@@ -278,8 +278,9 @@ class App extends React.Component {
     Object.values(filters).forEach(filter => {
       const rows = [];
       grid.forEach((row, i) => {
-        let cell = filter.col ? row[filter.col] : null;
-        const found = !filter.col ? row.some(c => {
+        const nan = isNaN(filter.col);
+        let cell = !nan ? row[filter.col] : null;
+        const found = nan ? row.some(c => {
           cell = c;
           return filter.match ? cell.value.toString() === filter.str : cell.value.toString().includes(filter.str);
         }) :
