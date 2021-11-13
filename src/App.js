@@ -6,7 +6,7 @@ import { IconButton, Input, SvgIcon, TextField, Tooltip, Typography } from '@mui
 import { withStyles } from '@mui/styles';
 import TBLBuffer from './tbl/buffer';
 import { TypeTitles } from './tbl/const';
-import { mdiArrowLeft, mdiArrowRight } from '@mdi/js';
+import { mdiArrowLeft, mdiArrowRight, mdiContentSave, mdiFolderOpen, mdiMenuOpen, mdiOpenid, mdiOpenInNew } from '@mdi/js';
 
 
 const styles = theme => ({
@@ -43,8 +43,6 @@ class App extends React.Component {
       size: 100,
     };
 
-    this.lastMouseAt = Date.now();
-    this.mouseX = null;
     this.inputRef = React.createRef();
   }
 
@@ -241,18 +239,46 @@ class App extends React.Component {
     );
   }
 
+  onOpen = () => {
+    this.inputRef.current.click();
+  }
+
+  onSave = () => {
+
+  }
+
+  toolbar = () => {
+    return (
+      <div style={{ display: 'flex', width: '100%', position: 'fixed', top: 0, backgroundColor: '#fff' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Tooltip title='Open' placement='bottom'>
+            <IconButton onClick={this.onOpen} size='small' style={{ margin: '0px 4px' }}>
+              <SvgIcon fontSize='small'><path d={mdiFolderOpen} color={'#1b93d0'} /></SvgIcon>
+            </IconButton>
+          </Tooltip>
+          <Tooltip title='Save' placement='bottom'>
+            <IconButton onClick={this.onSave} size='small' style={{ margin: '0px 4px' }}>
+              <SvgIcon fontSize='small'><path d={mdiContentSave} color={'#1b93d0'} /></SvgIcon>
+            </IconButton>
+          </Tooltip>
+        </div>
+
+        <Input inputRef={this.inputRef} style={{ display: 'none' }} name="licenses" type='file' margin='dense' onChange={this.onChange}
+          hidden disableUnderline />
+        <span style={{ flex: 1 }} />
+        {this.pagination()}
+      </div>
+    );
+  }
+
   render() {
     const { classes } = this.props;
     return (
-      <div style={{ backgroundColor: '#fff', width: 'fit-content', minWidth: '100%', height: 'fit-content', minHeight: '100%' }}>
-        <div style={{ display: 'flex', width: '100%', position: 'fixed', top: 0, backgroundColor: '#fff' }}>
-          <Input inputRef={this.inputRef} style={{ display: 'inline' }} name="licenses" type='file' margin='dense' onChange={this.onChange}
-            hidden disableUnderline />
-          <span style={{ flex: 1 }} />
-          {this.pagination()}
-        </div>
+      <div style={{}}>
+        {this.toolbar()}
 
-        <div style={{ backgroundColor: '#ccc', minWidth: '100%', minHeight: '100%', marginTop: 48 }}>
+        <div style={{ marginTop: 48 }}>
           <ReactDataSheet
             data={this.state.grid}
             valueRenderer={cell => cell.value}
@@ -261,6 +287,7 @@ class App extends React.Component {
             cellRenderer={this.cellRenderer}
             onContextMenu={this.onContextMenu}
             onCellsChanged={this.onCellsChanged}
+            overflow={'clip'}
           />
         </div>
       </div>
