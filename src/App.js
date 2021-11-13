@@ -2,10 +2,12 @@ import './App.css';
 import React from 'react';
 import ReactDataSheet from 'react-datasheet';
 import 'react-datasheet/lib/react-datasheet.css';
-import { Input, TextField, Typography } from '@mui/material';
+import { IconButton, Input, SvgIcon, TextField, Tooltip, Typography } from '@mui/material';
 import { withStyles } from '@mui/styles';
 import TBLBuffer from './tbl/buffer';
-import { ColType, TypeTitles } from './tbl/const';
+import { TypeTitles } from './tbl/const';
+import { mdiArrowLeft, mdiArrowRight } from '@mdi/js';
+
 
 const styles = theme => ({
   cell: {
@@ -183,6 +185,19 @@ class App extends React.Component {
     this.setState({ grid: this.state._grid.slice(min, max), page, size, _page: page + 1 });
   }
 
+  onPrevPage = () => {
+    const page = Math.max(1, this.state.page - 1);
+    this.refreshTable(page, this.state.size);
+  }
+
+  onPrevPage = () => {
+    this.refreshTable(this.state.page - 1, this.state.size);
+  }
+
+  onNextPage = () => {
+    this.refreshTable(this.state.page + 1, this.state.size);
+  }
+
   pagination = () => {
     const { classes } = this.props;
     const total = Math.ceil(this.state._grid.length / this.state.size);
@@ -194,6 +209,13 @@ class App extends React.Component {
         <Typography style={{ marginRight: 12 }}>
           {page} of {total} pages
         </Typography>
+
+        <Tooltip title='Previous Page' placement='bottom'>
+          <IconButton onClick={this.onPrevPage} size='small' style={{ margin: '0px 4px' }} disabled={page <= 1}>
+            <SvgIcon fontSize='small'><path d={mdiArrowLeft} color={page > 1 ? '#1b93d0' : '#ccc'} /></SvgIcon>
+          </IconButton>
+        </Tooltip>
+
         <TextField margin='dense' label='Page' variant='outlined' value={this.state._page}
           disabled={disabled}
           onChange={e => this.setState({ _page: e.target.value })}
@@ -209,6 +231,12 @@ class App extends React.Component {
               this.refreshTable(this.state._page - 1, this.state.size);
             }
           }} />
+
+        <Tooltip title='Next Page' placement='top'>
+          <IconButton onClick={this.onNextPage} size='small' style={{ margin: '0px 4px' }} disabled={page === total}>
+            <SvgIcon fontSize='small'><path d={mdiArrowRight} color={page < total ? '#1b93d0' : '#ccc'} /></SvgIcon>
+          </IconButton>
+        </Tooltip>
       </div>
     );
   }
