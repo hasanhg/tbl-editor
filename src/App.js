@@ -4,6 +4,8 @@ import ReactDataSheet from 'react-datasheet';
 import 'react-datasheet/lib/react-datasheet.css';
 import { Input, Typography } from '@mui/material';
 import { withStyles } from '@mui/styles';
+import TBLBuffer from './tbl/buffer';
+import { ColType, TypeTitles } from './tbl/const';
 
 const styles = theme => ({
   cell: {
@@ -25,26 +27,8 @@ class App extends React.Component {
     this.state = {
       as: 'table',
       columns: [
-        { label: 'Style', width: 200 },
-        { label: 'IBUs', width: 200 },
-        { label: 'Color (SRM)', width: 200 },
-        { label: 'Rating', width: 200 }
       ],
       grid: [
-        [{ value: 'Ordinary Bitter' }, { value: '20 - 35' }, { value: '5 - 12' }, { value: 4, attributes: { 'data-foo': 'bar' } }],
-        [{ value: 'Special Bitter' }, { value: '28 - 40' }, { value: '6 - 14' }, { value: 4 }],
-        [{ value: 'ESB' }, { value: '30 - 45' }, { value: '6 - 14' }, { value: 5 }],
-        [{ value: 'Scottish Light' }, { value: '9 - 20' }, { value: '6 - 15' }, { value: 3 }],
-        [{ value: 'Scottish Heavy' }, { value: '12 - 20' }, { value: '8 - 30' }, { value: 4 }],
-        [{ value: 'Scottish Export' }, { value: '15 - 25' }, { value: '9 - 19' }, { value: 4 }],
-        [{ value: 'English Summer Ale' }, { value: '20 - 30' }, { value: '3 - 7' }, { value: 3 }],
-        [{ value: 'English Pale Ale' }, { value: '20 - 40' }, { value: '5 - 12' }, { value: 4 }],
-        [{ value: 'English IPA' }, { value: '35 - 63' }, { value: '6 - 14' }, { value: 4 }],
-        [{ value: 'Strong Ale' }, { value: '30 - 65' }, { value: '8 - 21' }, { value: 4 }],
-        [{ value: 'Old Ale' }, { value: '30 -65' }, { value: '12 - 30' }, { value: 4 }],
-        [{ value: 'Pale Mild Ale' }, { value: '10 - 20' }, { value: '6 - 9' }, { value: 3 }],
-        [{ value: 'Dark Mild Ale' }, { value: '10 - 24' }, { value: '17 - 34' }, { value: 3 }],
-        [{ value: 'Brown Ale' }, { value: '12 - 25' }, { value: '12 - 17' }, { value: 3 }]
       ],
       selections: [false, false, false, false, false, false, false, false, false, false, false, false, false, false],
     };
@@ -157,26 +141,49 @@ class App extends React.Component {
     fr.onload = (e) => {
       const b64 = e.target.result;
       const buf = Buffer.from(b64);
+      const tbl = new TBLBuffer(buf);
+      const table = tbl.parse();
+
+      const columns = table.cols.map((col, i) => {
+        return {
+          label: TypeTitles[col],
+          id: i,
+          width: 200,
+        }
+      });
+
+      const grid = table.rows.map(row => {
+        return row.map(cell => {
+          return {
+            value: cell
+          };
+        });
+      });
+
+      this.setState({ columns, grid });
     };
 
-    fr.readAsBinaryString(file);
+    fr.readAsArrayBuffer(file);
   }
 
   render() {
     const { classes } = this.props;
     return (
-      <div>
+      <div style={{ backgroundColor: '#fff', width: 'fit-content', minWidth: '100%' }}>
         <Input inputRef={this.inputRef} style={{ display: 'inline' }} name="licenses" type='file' margin='dense' onChange={this.onChange}
           hidden disableUnderline />
-        <ReactDataSheet
-          data={this.state.grid}
-          valueRenderer={cell => cell.value}
-          sheetRenderer={this.sheetRenderer}
-          rowRenderer={this.rowRenderer}
-          cellRenderer={this.cellRenderer}
-          onContextMenu={this.onContextMenu}
-          onCellsChanged={this.onCellsChanged}
-        />
+
+        <div style={{ backgroundColor: '#ccc', minWidth: '100%' }}>
+          <ReactDataSheet
+            data={this.state.grid}
+            valueRenderer={cell => cell.value}
+            sheetRenderer={this.sheetRenderer}
+            rowRenderer={this.rowRenderer}
+            cellRenderer={this.cellRenderer}
+            onContextMenu={this.onContextMenu}
+            onCellsChanged={this.onCellsChanged}
+          />
+        </div>
       </div>
     );
   }
@@ -189,7 +196,7 @@ const onDragStart = (e, state, setState, i) => {
 const onDragEnd = (e, state, setState, i) => {
   if (!state.dragX) return;
   i = i ? i : state.dragI;
-  const width = state.columns[i].width + e.clientX - state.dragX;
+  const width = Math.max(state.columns[i].width + e.clientX - state.dragX, 64);
   const columns = state.columns;
   columns[i] = { ...columns[i], width };
   setState({ columns, dragX: null, dragI: null });
@@ -207,17 +214,19 @@ const SheetRenderer = props => {
   }
 
   return (
-    <div style={{ overflowX: 'auto', height: '100vh', backgroundColor: '#ccc', cursor: state.dragX ? 'col-resize' : 'default' }} onMouseUp={(e) => onDragEnd(e, state, setState)}>
+    <div style={{ height: '100vh', cursor: state.dragX ? 'col-resize' : 'default' }} onMouseUp={(e) => onDragEnd(e, state, setState)}>
       <div id={'temp'} style={{ borderRight: state.dragX ? '2px solid #8cdcda' : null, left: 0, position: 'absolute', width: 2, height: '100vh' }} />
       <Tag className={className} style={{ width: 'fit-content' }}>
         <Header className='data-header'>
           <Row>
-            <Cell className='action-cell cell' style={{ backgroundColor: '#ccc', width: 64 }}>
-            </Cell>
+            {columns.length > 0 ?
+              <Cell className='action-cell cell' style={{ backgroundColor: '#ccc', width: 64 }} /> :
+              null
+            }
             {columns.map((column, i) => {
               const col = colName(i + 1);
               return (
-                <Cell className='cell' className={classes.colCell} style={{ width: column.width, fontWeight: 600, backgroundColor: '#696', color: '#fff', padding: 0 }} key={column.label}>
+                <Cell className='cell' className={classes.colCell} style={{ width: column.width, fontWeight: 600, backgroundColor: '#696', color: '#fff', padding: 0 }} key={column.id}>
                   <div style={{ display: 'flex' }}>
                     <div style={{
                       borderLeft: state.hoverCol === i - 1 || state.dragI === i - 1 ? '2px solid #8cdcda' : '0px solid #ccc',
@@ -235,12 +244,16 @@ const SheetRenderer = props => {
             }
             )}
           </Row>
-          <Row>
-            <Cell className='action-cell cell' style={{ fontWeight: 600, textAlign: 'center', backgroundColor: '#696', color: '#fff', padding: '2px 0px' }}>
-              1
-            </Cell>
-            {columns.map(column => <Cell className='cell' className={classes.hCell} style={{ width: column.width, padding: '2px 0px', backgroundColor: '#fff' }} key={column.label}>{column.label}</Cell>)}
-          </Row>
+          {props.children.length > 0 ?
+            <Row>
+              <Cell className='action-cell cell' style={{ fontWeight: 600, textAlign: 'center', backgroundColor: '#696', color: '#fff', padding: '2px 0px' }}>
+                1
+              </Cell>
+              {columns.map(column => <Cell className='cell' className={classes.hCell} style={{ width: column.width, padding: '2px 0px', backgroundColor: '#fff' }} key={column.id}>{column.label}</Cell>)}
+            </Row> :
+            null
+          }
+
         </Header>
         <Body className='data-body'>
           {props.children}
