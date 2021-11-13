@@ -2,7 +2,7 @@ import './App.css';
 import React from 'react';
 import ReactDataSheet from 'react-datasheet';
 import 'react-datasheet/lib/react-datasheet.css';
-import { Typography } from '@mui/material';
+import { Input, Typography } from '@mui/material';
 import { withStyles } from '@mui/styles';
 
 const styles = theme => ({
@@ -51,9 +51,14 @@ class App extends React.Component {
 
     this.lastMouseAt = Date.now();
     this.mouseX = null;
+    this.inputRef = React.createRef();
   }
 
   componentDidMount() {
+    const temp = document.getElementById('temp');
+    document.addEventListener('mousemove', (e) => {
+      temp.style.left = e.clientX - 2 + 'px';
+    });
   }
 
   handleSelect = (e) => {
@@ -134,17 +139,45 @@ class App extends React.Component {
   onContextMenu = (e, cell, i, j) =>
     cell.readOnly ? e.preventDefault() : null;
 
+
+  onChange = (e) => {
+    const files = Object.values(this.inputRef.current.files);
+    var invalid = false;
+
+    let file = null;
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      if (f && f.name.endsWith('.tbl')) {
+        file = f;
+        break;
+      }
+    }
+
+    const fr = new FileReader();
+    fr.onload = (e) => {
+      const b64 = e.target.result;
+      const buf = Buffer.from(b64);
+    };
+
+    fr.readAsBinaryString(file);
+  }
+
   render() {
+    const { classes } = this.props;
     return (
-      <ReactDataSheet
-        data={this.state.grid}
-        valueRenderer={cell => cell.value}
-        sheetRenderer={this.sheetRenderer}
-        rowRenderer={this.rowRenderer}
-        cellRenderer={this.cellRenderer}
-        onContextMenu={this.onContextMenu}
-        onCellsChanged={this.onCellsChanged}
-      />
+      <div>
+        <Input inputRef={this.inputRef} style={{ display: 'inline' }} name="licenses" type='file' margin='dense' onChange={this.onChange}
+          hidden disableUnderline />
+        <ReactDataSheet
+          data={this.state.grid}
+          valueRenderer={cell => cell.value}
+          sheetRenderer={this.sheetRenderer}
+          rowRenderer={this.rowRenderer}
+          cellRenderer={this.cellRenderer}
+          onContextMenu={this.onContextMenu}
+          onCellsChanged={this.onCellsChanged}
+        />
+      </div>
     );
   }
 }
@@ -175,7 +208,7 @@ const SheetRenderer = props => {
 
   return (
     <div style={{ overflowX: 'auto', height: '100vh', backgroundColor: '#ccc', cursor: state.dragX ? 'col-resize' : 'default' }} onMouseUp={(e) => onDragEnd(e, state, setState)}>
-      <div style={{ borderRight: state.dragX ? '2px solid #8cdcda' : null, position: 'absolute', left: state.mouseX, width: 2, height: '100vh' }} />
+      <div id={'temp'} style={{ borderRight: state.dragX ? '2px solid #8cdcda' : null, left: 0, position: 'absolute', width: 2, height: '100vh' }} />
       <Tag className={className} style={{ width: 'fit-content' }}>
         <Header className='data-header'>
           <Row>
