@@ -2,7 +2,7 @@ import './App.css';
 import React from 'react';
 import ReactDataSheet from 'react-datasheet';
 import 'react-datasheet/lib/react-datasheet.css';
-import { Input, Typography } from '@mui/material';
+import { Input, TextField, Typography } from '@mui/material';
 import { withStyles } from '@mui/styles';
 import TBLBuffer from './tbl/buffer';
 import { ColType, TypeTitles } from './tbl/const';
@@ -17,7 +17,13 @@ const styles = theme => ({
 
   },
   hCell: {
-    border: '1px solid #ddd'
+    border: '1px solid #ddd',
+  },
+  pageRoot: {
+    height: 36,
+  },
+  pageInput: {
+    textAlign: 'center',
   }
 });
 
@@ -26,11 +32,13 @@ class App extends React.Component {
     super(props);
     this.state = {
       as: 'table',
-      columns: [
-      ],
-      grid: [
-      ],
+      columns: [],
+      grid: [],
+      _grid: [],
       selections: [false, false, false, false, false, false, false, false, false, false, false, false, false, false],
+      page: 0,
+      _page: 0,
+      size: 100,
     };
 
     this.lastMouseAt = Date.now();
@@ -93,11 +101,11 @@ class App extends React.Component {
     const { selections } = this.state
     switch (this.state.as) {
       case 'list':
-        return <RowRenderer as='li' cellAs='div' selected={selections[props.row]} onSelectChanged={this.handleSelectChanged} className='data-row' {...props} />
+        return <RowRenderer as='li' cellAs='div' selected={selections[props.row]} onSelectChanged={this.handleSelectChanged} className='data-row' {...props} state={this.state} />
       case 'div':
-        return <RowRenderer as='div' cellAs='div' selected={selections[props.row]} onSelectChanged={this.handleSelectChanged} className='data-row' {...props} />
+        return <RowRenderer as='div' cellAs='div' selected={selections[props.row]} onSelectChanged={this.handleSelectChanged} className='data-row' {...props} state={this.state} />
       default:
-        return <RowRenderer as='tr' cellAs='td' selected={selections[props.row]} onSelectChanged={this.handleSelectChanged} className='data-row' {...props} />
+        return <RowRenderer as='tr' cellAs='td' selected={selections[props.row]} onSelectChanged={this.handleSelectChanged} className='data-row' {...props} state={this.state} />
     }
   }
 
@@ -152,7 +160,7 @@ class App extends React.Component {
         }
       });
 
-      const grid = table.rows.map(row => {
+      const _grid = table.rows.map(row => {
         return row.map(cell => {
           return {
             value: cell
@@ -160,20 +168,63 @@ class App extends React.Component {
         });
       });
 
-      this.setState({ columns, grid });
+      this.setState({ _grid, columns, grid: _grid.slice(0, this.state.size), page: 0, _page: 1 });
     };
 
     fr.readAsArrayBuffer(file);
   }
 
+  refreshTable = (page, size) => {
+    const total = this.state._grid.length / size;
+    page = Math.max(page, 0);
+    page = Math.min(page, total);
+    const min = page * size;
+    const max = min + size;
+    this.setState({ grid: this.state._grid.slice(min, max), page, size, _page: page + 1 });
+  }
+
+  pagination = () => {
+    const { classes } = this.props;
+    const total = Math.ceil(this.state._grid.length / this.state.size);
+    const page = Math.min(this.state.page + 1, total);
+    const disabled = total === 0;
+
+    return (
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <Typography style={{ marginRight: 12 }}>
+          {page} of {total} pages
+        </Typography>
+        <TextField margin='dense' label='Page' variant='outlined' value={this.state._page}
+          disabled={disabled}
+          onChange={e => this.setState({ _page: e.target.value })}
+          style={{ width: 56 }}
+          InputProps={{
+            classes: {
+              root: classes.pageRoot,
+              input: classes.pageInput,
+            }
+          }}
+          onKeyPress={(ev) => {
+            if (ev.key === 'Enter') {
+              this.refreshTable(this.state._page - 1, this.state.size);
+            }
+          }} />
+      </div>
+    );
+  }
+
   render() {
     const { classes } = this.props;
     return (
-      <div style={{ backgroundColor: '#fff', width: 'fit-content', minWidth: '100%' }}>
-        <Input inputRef={this.inputRef} style={{ display: 'inline' }} name="licenses" type='file' margin='dense' onChange={this.onChange}
-          hidden disableUnderline />
+      <div style={{ backgroundColor: '#fff', width: 'fit-content', minWidth: '100%', height: 'fit-content', minHeight: '100%' }}>
+        <div style={{ display: 'flex', width: '100%', position: 'fixed', top: 0, backgroundColor: '#fff' }}>
+          <Input inputRef={this.inputRef} style={{ display: 'inline' }} name="licenses" type='file' margin='dense' onChange={this.onChange}
+            hidden disableUnderline />
+          <span style={{ flex: 1 }} />
+          {this.pagination()}
+        </div>
 
-        <div style={{ backgroundColor: '#ccc', minWidth: '100%' }}>
+        <div style={{ backgroundColor: '#ccc', minWidth: '100%', minHeight: '100%', marginTop: 48 }}>
           <ReactDataSheet
             data={this.state.grid}
             valueRenderer={cell => cell.value}
@@ -264,11 +315,11 @@ const SheetRenderer = props => {
 }
 
 const RowRenderer = props => {
-  const { as: Tag, cellAs: Cell, className, row, selected, onSelectChanged } = props
+  const { as: Tag, cellAs: Cell, className, row, selected, onSelectChanged, state } = props
   return (
     <Tag className={className}>
       <Cell className='action-cell cell' style={{ fontWeight: 600, textAlign: 'center', backgroundColor: '#696', color: '#fff', padding: '2px 0px' }}>
-        {row + 2}
+        {row + 2 + (state.page * state.size)}
       </Cell>
       {props.children}
     </Tag>
