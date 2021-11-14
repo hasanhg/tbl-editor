@@ -6,7 +6,7 @@ import 'react-datasheet/lib/react-datasheet.css';
 import { Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, FormControlLabel, FormGroup, FormLabel, IconButton, Input, Popover, Radio, RadioGroup, SvgIcon, TextField, Tooltip, Typography } from '@mui/material';
 import TBLBuffer from './tbl/buffer';
 import { TypeTitles } from './tbl/const';
-import { mdiArrowLeft, mdiArrowRight, mdiContentSave, mdiEye, mdiEyeOff, mdiFileHidden, mdiFilter, mdiFilterOutline, mdiFolderOpen, mdiTableEye } from '@mdi/js';
+import { mdiArrowLeft, mdiArrowRight, mdiContentSave, mdiEye, mdiEyeOff, mdiFileHidden, mdiFilter, mdiFilterOutline, mdiFolderOpen, mdiPlaylistMinus, mdiPlaylistPlay, mdiPlaylistPlus, mdiTableEye } from '@mdi/js';
 
 
 const styles = theme => ({
@@ -58,6 +58,8 @@ class App extends React.Component {
       hideShowAnchor: null,
     };
 
+    this.rootRef = React.createRef();
+    this.endRef = React.createRef();
     this.inputRef = React.createRef();
     this.sheetRef = React.createRef();
   }
@@ -168,6 +170,7 @@ class App extends React.Component {
     }
 
     if (!file) return;
+    window.scrollTo(0, 0);
 
     const fr = new FileReader();
     fr.onload = (e) => {
@@ -214,16 +217,13 @@ class App extends React.Component {
   }
 
   onPrevPage = () => {
-    const page = Math.max(1, this.state.page - 1);
-    this.refreshTable(page, this.state.size);
-  }
-
-  onPrevPage = () => {
     this.refreshTable(this.state.page - 1, this.state.size);
+    window.scrollTo(0, 0);
   }
 
   onNextPage = () => {
     this.refreshTable(this.state.page + 1, this.state.size);
+    window.scrollTo(0, 0);
   }
 
   pagination = () => {
@@ -259,6 +259,7 @@ class App extends React.Component {
           onKeyPress={(ev) => {
             if (ev.key === 'Enter') {
               this.refreshTable(this.state._page - 1, this.state.size);
+              window.scrollTo(0, 0);
             }
           }} />
 
@@ -347,6 +348,25 @@ class App extends React.Component {
         </div >
       </Popover>
     );
+  }
+
+  addRow = () => {
+    const { columns, _grid, grid } = this.state;
+    if (columns.length === 0) return;
+
+    const row = [];
+    columns.forEach(col => {
+      row.push({});
+    })
+
+    row.row = _grid.length;
+    grid.push(row);
+    _grid.push(row);
+    this.setState({ _grid, grid }, () => {
+      this.sheetRef.current.refresh(() => {
+        window.scrollTo(0, 2400); // FIXME: Find a way to scroll all the way down
+      });
+    });
   }
 
   onFilterCancel = () => {
@@ -473,7 +493,11 @@ class App extends React.Component {
         {this.filterWidget()}
         {this.hideColPopover()}
 
+        <div style={{ width: 120 }}></div>
+
         <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Divider orientation='vertical' style={{ height: 32 }} />
+
           <Tooltip title='Open' placement='bottom'>
             <IconButton onClick={this.onOpen} size='small' style={{ margin: '0px 4px' }}>
               <SvgIcon fontSize='small'><path d={mdiFolderOpen} color={'#1b93d0'} /></SvgIcon>
@@ -491,6 +515,29 @@ class App extends React.Component {
               </IconButton>
             </span>
           </Tooltip>
+          <Tooltip title='Add Row' placement='bottom'>
+            <span>
+              <IconButton onClick={this.addRow} size='small' style={{ margin: '0px 4px' }} disabled={this.state.columns.length === 0}>
+                <SvgIcon fontSize='small'><path d={mdiPlaylistPlus} color={this.state.columns.length === 0 ? '#ccc' : '#1b93d0'} /></SvgIcon>
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title='Duplicate Row' placement='bottom'>
+            <span>
+              <IconButton onClick={this.hideShowCol} size='small' style={{ margin: '0px 4px' }} disabled={this.state.columns.length === 0}>
+                <SvgIcon fontSize='small'><path d={mdiPlaylistPlay} color={this.state.columns.length === 0 ? '#ccc' : '#1b93d0'} /></SvgIcon>
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title='Delete Row' placement='bottom'>
+            <span>
+              <IconButton onClick={this.hideShowCol} size='small' style={{ margin: '0px 4px' }} disabled={this.state.columns.length === 0}>
+                <SvgIcon fontSize='small'><path d={mdiPlaylistMinus} color={this.state.columns.length === 0 ? '#ccc' : '#1b93d0'} /></SvgIcon>
+              </IconButton>
+            </span>
+          </Tooltip>
+
+          <Divider orientation='vertical' style={{ height: 32 }} />
         </div>
 
         <Input inputRef={this.inputRef} style={{ display: 'none' }} name="licenses" type='file' margin='dense' onChange={this.onChange}
@@ -504,7 +551,7 @@ class App extends React.Component {
   render() {
     const { classes } = this.props;
     return (
-      <div style={{}}>
+      <div ref={this.rootRef}>
         {this.toolbar()}
 
         <div style={{ marginTop: 48 }}>
@@ -520,6 +567,7 @@ class App extends React.Component {
             overflow={'clip'}
           />
         </div>
+        <span ref={this.endRef} />
       </div>
     );
   }
@@ -571,8 +619,8 @@ class SheetRenderer extends React.Component {
     return false;
   }
 
-  refresh = () => {
-    this.forceUpdate();
+  refresh = (cb) => {
+    this.forceUpdate(cb);
   }
 
   render() {
