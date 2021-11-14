@@ -3,10 +3,10 @@ import React from 'react';
 import { withStyles } from '@mui/styles';
 import ReactDataSheet from 'react-datasheet';
 import 'react-datasheet/lib/react-datasheet.css';
-import { Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormControlLabel, FormGroup, FormLabel, IconButton, Input, Radio, RadioGroup, SvgIcon, TextField, Tooltip, Typography } from '@mui/material';
+import { Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, FormControlLabel, FormGroup, FormLabel, IconButton, Input, Popover, Radio, RadioGroup, SvgIcon, TextField, Tooltip, Typography } from '@mui/material';
 import TBLBuffer from './tbl/buffer';
 import { TypeTitles } from './tbl/const';
-import { mdiArrowLeft, mdiArrowRight, mdiContentSave, mdiFilter, mdiFilterOutline, mdiFolderOpen } from '@mdi/js';
+import { mdiArrowLeft, mdiArrowRight, mdiContentSave, mdiEye, mdiEyeOff, mdiFileHidden, mdiFilter, mdiFilterOutline, mdiFolderOpen, mdiTableEye } from '@mdi/js';
 
 
 const styles = theme => ({
@@ -54,6 +54,8 @@ class App extends React.Component {
       filters: {},
       filteredGrid: [],
 
+      // Hide/Show Col properties
+      hideShowAnchor: null,
     };
 
     this.inputRef = React.createRef();
@@ -279,6 +281,74 @@ class App extends React.Component {
 
   }
 
+  hideShowCol = (e) => {
+    this.setState({ hideShowAnchor: e.currentTarget });
+  }
+
+  doHideShow = (i) => {
+    const { columns } = this.state;
+    columns[i].hidden = !Boolean(columns[i].hidden);
+    this.setState({ columns }, () => {
+      this.refreshTable(this.state.page, this.state.size);
+    });
+  }
+
+  showAll = () => {
+    const { columns } = this.state;
+    columns.forEach(col => col.hidden = false);
+    this.setState({ columns }, () => {
+      this.refreshTable(this.state.page, this.state.size);
+    });
+  }
+
+  hideAll = () => {
+    const { columns } = this.state;
+    columns.forEach(col => col.hidden = true);
+    this.setState({ columns }, () => {
+      this.refreshTable(this.state.page, this.state.size);
+    });
+  }
+
+  hideColPopover = () => {
+    return (
+      <Popover
+        id={'hide-col'}
+        open={Boolean(this.state.hideShowAnchor)}
+        anchorEl={this.state.hideShowAnchor}
+        onClose={() => this.setState({ hideShowAnchor: null })}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'left',
+        }}
+      >
+        <div style={{ padding: 12, overflowX: 'auto', maxHeight: 240 }} >
+          <FormGroup>
+            <Divider />
+            <div style={{ display: `${this.state.columns.length > 0 ? 'flex' : 'none'}` }}>
+              <Tooltip title='Show All' placement='bottom'>
+                <IconButton onClick={this.showAll} size='small' style={{ margin: '0px 4px' }}>
+                  <SvgIcon fontSize='small'><path d={mdiEye} color={'#1b93d0'} /></SvgIcon>
+                </IconButton>
+              </Tooltip>
+              <Tooltip title='Hide All' placement='bottom'>
+                <IconButton onClick={this.hideAll} size='small' style={{ margin: '0px 4px' }}>
+                  <SvgIcon fontSize='small'><path d={mdiEyeOff} color={'#1b93d0'} /></SvgIcon>
+                </IconButton>
+              </Tooltip>
+            </div>
+            <Divider />
+
+            {this.state.columns.map((col, i) => {
+              return (
+                <FormControlLabel control={<Checkbox checked={!col.hidden} onChange={() => this.doHideShow(i)} />} label={colName(i + 1)} />
+              );
+            })}
+          </FormGroup>
+        </div >
+      </Popover>
+    );
+  }
+
   onFilterCancel = () => {
     this.setState({ filtering: false });
   }
@@ -401,6 +471,7 @@ class App extends React.Component {
     return (
       <div style={{ display: 'flex', width: '100%', position: 'fixed', top: 0, backgroundColor: '#fff', zIndex: 10 }}>
         {this.filterWidget()}
+        {this.hideColPopover()}
 
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <Tooltip title='Open' placement='bottom'>
@@ -412,6 +483,13 @@ class App extends React.Component {
             <IconButton onClick={this.onSave} size='small' style={{ margin: '0px 4px' }}>
               <SvgIcon fontSize='small'><path d={mdiContentSave} color={'#1b93d0'} /></SvgIcon>
             </IconButton>
+          </Tooltip>
+          <Tooltip title='Hide/Show Column' placement='bottom'>
+            <span>
+              <IconButton onClick={this.hideShowCol} size='small' style={{ margin: '0px 4px' }} disabled={this.state.columns.length === 0}>
+                <SvgIcon fontSize='small'><path d={mdiTableEye} color={this.state.columns.length === 0 ? '#ccc' : '#1b93d0'} /></SvgIcon>
+              </IconButton>
+            </span>
           </Tooltip>
         </div>
 
@@ -513,6 +591,7 @@ class SheetRenderer extends React.Component {
                 null
               }
               {columns.map((column, i) => {
+                if (column.hidden) return;
                 const col = colName(i + 1);
                 const filtered = i in state.filters;
 
@@ -525,7 +604,7 @@ class SheetRenderer extends React.Component {
                       }} onMouseOver={e => setState({ hoverCol: i - 1 }, this.refresh)} onMouseLeave={e => setState({ hoverCol: null }, this.refresh)} onMouseDown={(e) => { onDragStart(e, state, setState, i - 1, this.refresh) }} />
                       <span style={{ padding: '2px 0px', width: '100%', userSelect: 'none' }}>{col}</span>
                       <span style={{ flex: 1 }} />
-                      <span style={{ position: 'absolute', right: 12 }}>
+                      <span style={{ position: 'absolute', right: 4 }}>
                         <Tooltip title={filtered ? 'Remove Filter' : 'Add Filter'} placement='bottom'>
                           <IconButton onClick={() => { filtered ? removeFilter(i, state, setState, doFilter) : setState({ filtering: true, filterInCol: i }) }} size='small' style={{ margin: '0px 4px' }}>
                             <SvgIcon style={{ fontSize: 16 }}><path d={filtered ? mdiFilter : mdiFilterOutline} color={'#fff'} /></SvgIcon>
@@ -549,7 +628,14 @@ class SheetRenderer extends React.Component {
                 <Cell className='action-cell cell' style={{ fontWeight: 600, textAlign: 'center', backgroundColor: '#696', color: '#fff', padding: '2px 0px' }}>
                   1
                 </Cell>
-                {columns.map(column => <Cell className='cell' className={classes.hCell} style={{ width: column.width, padding: '2px 0px', backgroundColor: '#fff' }} key={column.id}>{column.label}</Cell>)}
+                {columns.map((column, i) => {
+                  if (column.hidden) return null;
+                  return (
+                    <Cell className='cell' className={classes.hCell} style={{ width: column.width, padding: '2px 0px', backgroundColor: '#fff' }} key={column.id}>
+                      {column.label}
+                    </Cell>
+                  );
+                })}
               </Row> :
               null
             }
@@ -590,6 +676,8 @@ const CellRenderer = props => {
   if (col === 0) {
     attributes.title = cell.label
   }
+
+  if (props.columns[props.col].hidden) return null;
 
   const nan = isNaN(cell.value);
 
