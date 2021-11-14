@@ -123,11 +123,11 @@ class App extends React.Component {
     const { selections } = this.state
     switch (this.state.as) {
       case 'list':
-        return <RowRenderer as='li' cellAs='div' selected={selections[props.row]} onSelectChanged={this.handleSelectChanged} className='data-row' {...props} state={this.state} />
+        return <RowRenderer as='li' cellAs='div' selected={selections[props.row]} onSelectChanged={this.handleSelectChanged} className='data-row' {...props} setState={(s, cb) => this.setState(s, cb)} state={this.state} refresh={this.sheetRef.current.refresh} />
       case 'div':
-        return <RowRenderer as='div' cellAs='div' selected={selections[props.row]} onSelectChanged={this.handleSelectChanged} className='data-row' {...props} state={this.state} />
+        return <RowRenderer as='div' cellAs='div' selected={selections[props.row]} onSelectChanged={this.handleSelectChanged} className='data-row' {...props} setState={(s, cb) => this.setState(s, cb)} state={this.state} refresh={this.sheetRef.current.refresh} />
       default:
-        return <RowRenderer as='tr' cellAs='td' selected={selections[props.row]} onSelectChanged={this.handleSelectChanged} className='data-row' {...props} state={this.state} />
+        return <RowRenderer as='tr' cellAs='td' selected={selections[props.row]} onSelectChanged={this.handleSelectChanged} className='data-row' {...props} setState={(s, cb) => this.setState(s, cb)} state={this.state} refresh={this.sheetRef.current.refresh} />
     }
   }
 
@@ -403,7 +403,7 @@ class App extends React.Component {
 
     grid.splice(start.i, 1);
     _grid.splice(start.i, 1);
-    this.setState({ _grid, grid }, () => {
+    this.setState({ _grid, grid, start: {}, end: {} }, () => {
       this.sheetRef.current.refresh();
     });
   }
@@ -527,7 +527,7 @@ class App extends React.Component {
   }
 
   toolbar = () => {
-    const rowSelected = Boolean(this.state.columns.length > 0 && this.state.start && this.state.end && this.state.start.i && this.state.start.j && this.state.start.i === this.state.end.i && this.state.start.j === this.state.end.j);
+    const rowSelected = Boolean(this.state.columns.length > 0 && this.state.start && this.state.end && this.state.start.i && this.state.start.i === this.state.end.i);
 
     return (
       <div style={{ display: 'flex', width: '100%', position: 'fixed', top: 0, backgroundColor: '#fff', zIndex: 10 }}>
@@ -605,6 +605,7 @@ class App extends React.Component {
             onContextMenu={this.onContextMenu}
             onCellsChanged={this.onCellsChanged}
             onSelect={this.onCellSelected}
+            selected={{ start: this.state.start, end: this.state.end }}
             //handleCopy={e => console.log(e)}
             overflow={'clip'}
           />
@@ -740,16 +741,23 @@ class SheetRenderer extends React.Component {
   }
 }
 
-const RowRenderer = props => {
-  const { as: Tag, cellAs: Cell, className, row, selected, onSelectChanged, state } = props
-  return (
-    <Tag className={className}>
-      <Cell className='action-cell cell' style={{ fontWeight: 600, textAlign: 'center', backgroundColor: '#696', color: '#fff', padding: '2px 0px' }}>
-        {props.cells.row ? props.cells.row + 2 : row + 2 + (state.page * state.size)}
-      </Cell>
-      {props.children}
-    </Tag>
-  )
+class RowRenderer extends React.Component {
+  constructor(props) {
+    super(props);
+  }
+
+  render() {
+    const { as: Tag, cellAs: Cell, className, row, cells, selected, onSelectChanged, state, setState, refresh } = this.props;
+
+    return (
+      <Tag className={className}>
+        <Cell onClick={e => setState({ start: { i: row, j: 0 }, end: { i: row, j: cells.length } }, refresh)} className='action-cell cell' style={{ fontWeight: 600, textAlign: 'center', backgroundColor: '#696', color: '#fff', padding: '2px 0px' }}>
+          {cells.row ? cells.row + 2 : row + 2 + (state.page * state.size)}
+        </Cell>
+        {this.props.children}
+      </Tag>
+    )
+  }
 }
 
 const CellRenderer = props => {
