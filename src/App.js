@@ -45,6 +45,10 @@ class App extends React.Component {
       _page: 0,
       size: 100,
 
+      // Grid properties
+      start: {},
+      end: {},
+
       // Filters properties
       filtering: false,
       filterStr: '',
@@ -150,6 +154,9 @@ class App extends React.Component {
 
   onCellSelected = (e) => {
     this.sheetRef.current.refresh();
+    if (e) {
+      this.setState({ start: e.start, end: e.end });
+    }
   }
 
   onContextMenu = (e, cell, i, j) =>
@@ -369,6 +376,38 @@ class App extends React.Component {
     });
   }
 
+  duplicateRow = () => {
+    const { columns, _grid, grid, start } = this.state;
+    if (columns.length === 0 || !start) return;
+
+    const duplicate = grid[start.i];
+    if (!duplicate) return;
+    const row = [];
+    columns.forEach((col, i) => {
+      row.push(duplicate[i]);
+    })
+
+    row.row = _grid.length;
+    grid.push(row);
+    _grid.push(row);
+    this.setState({ _grid, grid }, () => {
+      this.sheetRef.current.refresh(() => {
+        window.scrollTo(0, 2400); // FIXME: Find a way to scroll all the way down
+      });
+    });
+  }
+
+  deleteRow = () => {
+    const { columns, _grid, grid, start } = this.state;
+    if (columns.length === 0 || !start) return;
+
+    grid.splice(start.i, 1);
+    _grid.splice(start.i, 1);
+    this.setState({ _grid, grid }, () => {
+      this.sheetRef.current.refresh();
+    });
+  }
+
   onFilterCancel = () => {
     this.setState({ filtering: false });
   }
@@ -488,6 +527,8 @@ class App extends React.Component {
   }
 
   toolbar = () => {
+    const rowSelected = Boolean(this.state.columns.length > 0 && this.state.start && this.state.end && this.state.start.i && this.state.start.j && this.state.start.i === this.state.end.i && this.state.start.j === this.state.end.j);
+
     return (
       <div style={{ display: 'flex', width: '100%', position: 'fixed', top: 0, backgroundColor: '#fff', zIndex: 10 }}>
         {this.filterWidget()}
@@ -524,15 +565,15 @@ class App extends React.Component {
           </Tooltip>
           <Tooltip title='Duplicate Row' placement='bottom'>
             <span>
-              <IconButton onClick={this.hideShowCol} size='small' style={{ margin: '0px 4px' }} disabled={this.state.columns.length === 0}>
-                <SvgIcon fontSize='small'><path d={mdiPlaylistPlay} color={this.state.columns.length === 0 ? '#ccc' : '#1b93d0'} /></SvgIcon>
+              <IconButton onClick={this.duplicateRow} size='small' style={{ margin: '0px 4px' }} disabled={!rowSelected}>
+                <SvgIcon fontSize='small'><path d={mdiPlaylistPlay} color={!rowSelected ? '#ccc' : '#1b93d0'} /></SvgIcon>
               </IconButton>
             </span>
           </Tooltip>
           <Tooltip title='Delete Row' placement='bottom'>
             <span>
-              <IconButton onClick={this.hideShowCol} size='small' style={{ margin: '0px 4px' }} disabled={this.state.columns.length === 0}>
-                <SvgIcon fontSize='small'><path d={mdiPlaylistMinus} color={this.state.columns.length === 0 ? '#ccc' : '#1b93d0'} /></SvgIcon>
+              <IconButton onClick={this.deleteRow} size='small' style={{ margin: '0px 4px' }} disabled={!rowSelected}>
+                <SvgIcon fontSize='small'><path d={mdiPlaylistMinus} color={!rowSelected ? '#ccc' : '#1b93d0'} /></SvgIcon>
               </IconButton>
             </span>
           </Tooltip>
@@ -564,6 +605,7 @@ class App extends React.Component {
             onContextMenu={this.onContextMenu}
             onCellsChanged={this.onCellsChanged}
             onSelect={this.onCellSelected}
+            //handleCopy={e => console.log(e)}
             overflow={'clip'}
           />
         </div>
