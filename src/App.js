@@ -527,7 +527,7 @@ class App extends React.Component {
   }
 
   toolbar = () => {
-    const rowSelected = Boolean(this.state.columns.length > 0 && this.state.start && this.state.end && this.state.start.i && this.state.start.i === this.state.end.i);
+    const rowSelected = Boolean(this.state.columns.length > 0 && this.state.start && this.state.end && this.state.start.i === this.state.end.i);
 
     return (
       <div style={{ display: 'flex', width: '100%', position: 'fixed', top: 0, backgroundColor: '#fff', zIndex: 10 }}>
